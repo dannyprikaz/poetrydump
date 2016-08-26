@@ -1,0 +1,13 @@
+<h1>Welcome to your profile, {{username}}.</h1>
+<p>Poems go here</p>
+{% if poems %}
+<ul>
+  {% for poem in poems %}
+  <li>{{poem}}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>You have no poems.</p>
+{% endif %}
+<p><a href='/write'>Write</a> a new poem.</p>
+<p><a href='/log_out'>Log out</a></p>

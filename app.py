@@ -1,4 +1,4 @@
-from flask import Flask, request, session
+from flask import Flask, request, session, render_template
 from flask.ext.session import Session
 import requests
 from bs4 import BeautifulSoup
@@ -19,65 +19,37 @@ poems_coll = db.poems
 def index():
     username = session.get('username')
     password = session.get('password')
-    return '''
-    <h1> Welcome to Poetry Dump </h1>
-    <form action="/landing" method='POST' >
-    <p>
-        Username: <input type="text" name="username" value="{}"/>
-    </p>
-    <p>
-        Password: <input type="password" name="password" value="{}"/>
-        <input type="submit" />
-    </p>
-    </form>
-    <a href="/register">Register</a>
-    '''.format(username, password)
+    if username == None:
+        return render_template('index.html')
+    else:
+        return render_template('to_profile.html')
 
 # registration page
 @app.route('/register')
 def register():
-    return '''
-    <h1> Register an account: </h1>
-    <form action="/make_account" method='POST' >
-    <p>
-        Username: <input type="text" name="username" />
-    </p>
-    <p>
-        Password: <input type="password" name="password" />
-        <input type="submit" />
-    </p>
-    </form>
-    '''
+    return render_template('register.html')
 
 # If the username from registration form isn't in use, creates new profile
 @app.route('/make_account', methods=['POST'])
 def make_account():
     username, password = str(request.form['username']), str(request.form['password'])
-    session['username'], session['password'] = username, password
-    if coll.find_one({'username': username}):
-        return '''
-          <p>The username {} already exists.</p>
-           '''.format(username)
+    if coll.find_one({'user': username}):
+        return render_template('to_register.html')
     else:
+        session['username'], session['password'] = username, password
         coll.insert({'user':username, 'password':password})
-        return'''
-        You are registered.  Return to <a href="/"> homepage</a>.
-        '''
+        return render_template('to_profile.html')
 
 # checks username and password
 @app.route('/landing', methods=['POST'])
 def landing():
     username, password = str(request.form['username']), str(request.form['password'])
-    session['username'] = username
-    session['password'] = password
     that_user = coll.find_one({'user': username})
     if that_user:
         if that_user['password'] == password:
-            return'''
-            <script>
-            window.location = "/profile"
-            </script>
-            '''
+            session['username'] = username
+            session['password'] = password
+            return render_template('to_profile.html')
         else:
             return '''
                <p>Wrong password</p>
@@ -85,43 +57,36 @@ def landing():
                '''
     else:
         return'''
-        No username {}
+        <p>No username {}</p>
+        <p><a href='/'>Go back</a></p>
         '''.format(username)
 
+# profile page
 @app.route('/profile')
 def profile():
     username = session.get('username')
     poem_entries = poems_coll.find({'user': username})
     poems = [entry['poem'] for entry in poem_entries]
-    return'''
-    <h1>Welcome to your profile, {}.</h1>
-    <p>Poems go here</p>
-    <p>{}</p>
-    <p><a href='/write'>Write</a> a new poem.</p>
-    '''.format(username, poems)
+    return render_template('profile.html', username=username, poems=poems)
 
+# form for writing new poems
 @app.route('/write')
 def write():
-    return'''
-    <h1>Write a poem</h1>
-    <form action="/save_poem" method='POST'>
-    <textarea name="poem" rows="30" style="width: 100%"></textarea>
-    <input type="submit" />
-    </form>
-    '''
+    return render_template('write.html')
 
+# saves a poem from the 'write' form and then redirects to profile
 @app.route('/save_poem', methods=['POST'])
 def save_poem():
     poem = str(request.form['poem'])
     username = session.get('username')
     poems_coll.insert({'user':username, 'poem':poem})
-    return'''
-    <head>
-    <script>
-    window.location = "/profile"
-    </script>
-    <head>
-    '''
+    return render_template('to_profile.html')
+
+# logs a user out and redirects to index
+@app.route('/log_out')
+def log_out():
+    session.clear()
+    return render_template('to_index.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=True, threaded=True)
